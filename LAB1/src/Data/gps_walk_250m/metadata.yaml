@@ -1,0 +1,26 @@
+rosbag2_bagfile_information:
+  version: 5
+  storage_identifier: sqlite3
+  duration:
+    nanoseconds: 2013005961240
+  starting_time:
+    nanoseconds_since_epoch: 1738881768005801870
+  message_count: 76
+  topics_with_message_count:
+    - topic_metadata:
+        name: gps
+        type: gps_msg/msg/GpsMsg
+        serialization_format: cdr
+        offered_qos_profiles: ""
+      message_count: 76
+  compression_format: ""
+  compression_mode: ""
+  relative_file_paths:
+    - gps_bag_0.db3
+  files:
+    - path: gps_bag_0.db3
+      starting_time:
+        nanoseconds_since_epoch: 1738881768005801870
+      duration:
+        nanoseconds: 2013005961240
+      message_count: 76
