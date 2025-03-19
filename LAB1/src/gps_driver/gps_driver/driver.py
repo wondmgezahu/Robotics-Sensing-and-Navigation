@@ -29,7 +29,7 @@ class GPSReader(Node):
         # Timer for publishing data
         self.timer = self.create_timer(1.0, self.timer_callback)
 
-        # Setup rosbag writer
+        # Setup rosbag writer 
         self.writer = rosbag2_py.SequentialWriter()
         storage_options = rosbag2_py.StorageOptions(uri='gps_bag',
                                                     storage_id='sqlite3')
@@ -65,7 +65,7 @@ class GPSReader(Node):
                     if line.startswith('$GPGGA'):
                         gps_data = self.parse_gpgga(line)
                         self.get_logger().info(f"Parsed GPS Data: {gps_data}")
-
+			#self.publisher.publish(msg)
                         if gps_data:
                             if self.gps_data_queue.full():
                                 self.gps_data_queue.get()
@@ -90,9 +90,11 @@ class GPSReader(Node):
         fields = sentence.split(",")
         print(fields)
 
-        time_UTC = float(fields[1])
+        time_UTC = float(fields[1]) if fields[1] else 0.0
         latitude = float(fields[2]) if fields[2] else None
+        lat_dir=fields[3] if fields[3] else ""
         longitude = float(fields[4]) if fields[4] else None
+        lon_dir=fields[5] if fields[5] else ""
         HDOP = float(fields[8]) if fields[8] else None
         altitude = float(fields[9])  if fields[9] else None
 
@@ -100,26 +102,19 @@ class GPSReader(Node):
             return None
 
         lat_deg = int(latitude / 100)
-        lat_min = latitude - lat_deg * 100
-        lat_decimal = lat_deg + lat_min / 60
-
+        lat_min = latitude - (lat_deg * 100)
+        lat_decimal = lat_deg + (lat_min / 60)
+        if lat_dir=='S':
+            lat_decimal=-1*lat_decimal
         lon_deg = int(longitude / 100)
-        lon_min = longitude - lon_deg * 100
-        lon_decimal = -1 * lon_deg + lon_min / 60
-
+        lon_min = longitude - (lon_deg * 100)
+        lon_decimal = lon_deg + (lon_min / 60)
+        if lon_dir=='W':
+            lon_decimal=-1*lon_decimal
         print(lat_decimal)
         print(lon_decimal)
-
         # print(utm.from_latlon(latitude=lat_decimal, longitude=lon_decimal))
-
-
         utm_easting, utm_northing, zone, letter = utm.from_latlon(latitude=lat_decimal, longitude=lon_decimal)
-
-        # print(utm.from_latlon(latitude=latitude, longitude=longitude))
-
-        # return {'latitude': lat_decimal, 'longitude': lon_decimal,
-        #         'altitude': altitude}
-
         return {
             'latitude': lat_decimal,
             'longitude': lon_decimal,
@@ -131,7 +126,6 @@ class GPSReader(Node):
             'zone': zone,
             'letter': letter
         }
-
     def publish_gps_data(self, gps_data):
         # Create a NavSatFix message
         seconds = int(gps_data['utc'])  # Integer part gives seconds
@@ -139,12 +133,21 @@ class GPSReader(Node):
         msg = GPSmsg()
         msg.header = Header(frame_id="GPS1_Frame", stamp=Time(sec=seconds, nanosec=nanoseconds))
         # Loop through the fields and set the values in the message
-        for field in gps_data.keys():
-            if field in gps_data:
-                setattr(msg, field, gps_data[field])
-            else:
-                setattr(msg, field, 0.0)
+        # for field in gps_data.keys():
+        #    if field in gps_data:
+        #        setattr(msg, field, gps_data[field])
+        #    else:
+        #        setattr(msg, field, 0.0)
 
+        msg.latitude= gps_data['latitude']
+        msg.longitude= gps_data['longitude']
+        msg.altitude= gps_data['altitude']
+        msg.hdop= gps_data['hdop']
+        msg.utm_easting= gps_data['utm_easting']
+        msg.utm_northing= gps_data['utm_northing']
+        msg.zone=gps_data['zone']
+        msg.letter=gps_data['letter']
+        msg.utc=gps_data['utc']
         # Publish the message
         self.publisher.publish(msg)
         self.writer.write(
@@ -152,7 +155,7 @@ class GPSReader(Node):
             serialize_message(msg),
             self.get_clock().now().nanoseconds)
         self.get_logger().info(
-            f"writer triggered at: {time.time()} and wrote: lat={msg.latitude}, long={msg.longitude}")
+            f"writer triggered at: {time.time()} and wrote: lat={msg.latitude}, long={msg.longitude},UTM=({msg.utm_easting},{msg.utm_northing})")
 
 
 def main(args=None):
